@@ -1,0 +1,184 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <complex.h>
+#include <math.h>
+
+const double PI = acos(-1);
+
+typedef double complex cd;
+
+cd* FFT(cd* S, int N, int invert) 
+{
+    cd* A = (cd*)malloc(N * sizeof(cd));
+    if (N == 1) 
+    {
+        A[0] = S[0];
+        return A;
+    } 
+    else 
+    {
+        cd* X = (cd*)malloc(N / 2 * sizeof(cd));
+        cd* Y = (cd*)malloc(N / 2 * sizeof(cd));
+        for (int i = 0; i < N / 2; ++i) 
+        {
+            X[i] = S[2 * i];
+            Y[i] = S[2 * i + 1];
+        }
+        cd* B = FFT(X, N / 2, invert);
+        cd* C = FFT(Y, N / 2, invert);
+        free(X);
+        free(Y);
+        double theta = -2 * PI / N * (invert ? -1 : 1);
+        cd P = 1.0, W = cos(theta) + sin(theta) * I;
+        for (int r = 0; r < N / 2; ++r) 
+        {
+            cd term = P * C[r];
+            A[r] = B[r] + term;
+            A[r + N / 2] = B[r] - term;
+            if (invert) 
+            {
+                A[r] /= 2;
+                A[r + N / 2] /= 2;
+            }
+            P *= W;
+        }
+        free(B);
+        free(C);
+        return A;
+    }
+}
+
+typedef struct 
+{
+    int lim;
+    cd* coeff;
+} polynomial;
+
+polynomial* create_polynomial(int limit) 
+{
+    polynomial* p = (polynomial*)malloc(sizeof(polynomial));
+    p->lim = limit;
+    p->coeff = (cd*)malloc(limit * sizeof(cd));
+    return p;
+}
+
+void destroy_polynomial(polynomial* p) 
+{
+    free(p->coeff);
+    free(p);
+}
+
+polynomial* polynomial_multiply(const polynomial* p1, const polynomial* p2) 
+{
+    int N = 1;
+    while (N < p1->lim + p2->lim - 1) 
+    {
+        N <<= 1;
+    }
+
+    cd* A = (cd*)calloc(N, sizeof(cd));
+    for (int i = 0; i < p1->lim; ++i) 
+    {
+        A[i] = p1->coeff[i];
+    }
+
+    cd* fA = FFT(A, N, 0);
+
+    cd* B = (cd*)calloc(N, sizeof(cd));
+    for (int i = 0; i < p2->lim; ++i) 
+    {
+        B[i] = p2->coeff[i];
+    }
+
+    cd* fB = FFT(B, N, 0);
+
+    for (int i = 0; i < N; ++i) 
+    {
+        fA[i] *= fB[i];
+    }
+
+    cd* ifft_fA = FFT(fA, N, 1);
+
+    polynomial* result = create_polynomial(p1->lim + p2->lim - 1);
+    for (int i = 0; i < result->lim; ++i) 
+    {
+        result->coeff[i] = ifft_fA[i];
+    }
+
+    free(fA);
+    free(fB);
+    free(A);
+    free(B);
+    free(ifft_fA);
+
+    return result;
+}
+
+cd get_coefficient(const polynomial* p, int index) 
+{
+    return p->coeff[index];
+}
+
+void input_polynomial(polynomial* p) 
+{
+    for (int i = 0; i < p->lim; ++i) 
+    {
+        int co;
+        printf("Enter coefficient of x^%d: ", i);
+        scanf("%d", &co);
+        p->coeff[i] = co + 0.0 * I;
+    }
+}
+
+void print_polynomial(const polynomial* p) 
+{
+    printf("\n");
+    for (int i = 0; i < p->lim; ++i) 
+    {
+        printf("coefficient of x^%d: %.2f\n", i, creal(p->coeff[i]));
+    }
+}
+
+int evaluate_polynomial(const polynomial* p, int x) 
+{
+    int i = p->lim - 1;
+    int result = round(creal(p->coeff[i]));
+    while (i > 0) 
+    {
+        result = result * x + creal(p->coeff[i - 1]);
+        --i;
+    }
+    return result;
+}
+
+int main() 
+{
+    int n1, n2;
+    printf("Enter the size of First polynomial: ");
+    scanf("%d", &n1);
+    polynomial* p1 = create_polynomial(n1);
+    printf("Enter First polynomial:\n");
+    input_polynomial(p1);
+
+    printf("Enter the size of second polynomial: ");
+    scanf("%d", &n2);
+    polynomial* p2 = create_polynomial(n2);
+    printf("Enter second polynomial:\n");
+    input_polynomial(p2);
+
+    polynomial* Result = polynomial_multiply(p1, p2);
+    printf("After polynomial multiplication:\n");
+    printf("\nResult: ");
+    print_polynomial(Result);
+
+    int x;
+    printf("Enter value of X: ");
+    scanf("%d", &x);
+    printf("Evaluate value of p: %d\n", evaluate_polynomial(Result, x));
+
+    destroy_polynomial(p1);
+    destroy_polynomial(p2);
+    destroy_polynomial(Result);
+
+    return 0;
+}
