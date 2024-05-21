@@ -1,0 +1,51 @@
+#include <stdio.h>
+#include <stdbool.h>
+
+#define MAX 4
+
+void topologicalSortUtil(int u, int adj[MAX][MAX], bool visited[], int Stack[], int* n) 
+{
+    visited[u] = true;
+
+    for (int v = 0; v < MAX; v++) 
+    {
+        if (!visited[v] && adj[u][v] > 0)
+            topologicalSortUtil(v, adj, visited, Stack, n);
+    }
+    Stack[(*n)++] = u;
+}
+
+void topologicalSort(int adj[MAX][MAX]) 
+{
+    int Stack[MAX];
+    int n = 0;
+    bool visited[MAX] = {false};
+
+    for (int u = 0; u < MAX; u++) 
+    {
+        if (!visited[u])
+            topologicalSortUtil(u, adj, visited, Stack, &n);
+    }
+    
+    for (int i = n - 1; i >= 0; i--) 
+    {
+        printf("%d ", Stack[i]);
+    }
+}
+
+int main() 
+{
+    int adj[MAX][MAX];
+    printf("Enter the adjacency matrix for a graph with %d vertices:\n", MAX);
+    for (int i = 0; i < MAX; i++) 
+    {
+        for (int j = 0; j < MAX; j++) 
+        {
+            scanf("%d", &adj[i][j]);
+        }
+    }
+    printf("Topological sorting of the graph: ");
+    topologicalSort(adj);
+
+    return 0;
+}
